@@ -1,0 +1,19 @@
+net: "mnist_wta_leakyReLU.prototxt"
+#test_state: { stage: 'test-on-train' }
+#test_iter: 50 #60,000 training samples
+test_state: { stage: 'test-on-test' }
+test_iter: 100 #10,000 testing samples
+test_interval: 600
+test_compute_loss: true
+base_lr: 0.001
+lr_policy: "fixed"
+#gamma: 0.1 #for decreasing learning rate
+#stepsize: 10000
+display: 1000
+max_iter: 35000
+weight_decay: 0.0005
+snapshot: 600
+snapshot_prefix: "/usr/not-backed-up/1_convlstm/mnist_wta_leakyReLU_sep2017/mnist_GlobalWta"
+momentum: 0.9
+# solver mode: CPU or GPU
+solver_mode: GPU

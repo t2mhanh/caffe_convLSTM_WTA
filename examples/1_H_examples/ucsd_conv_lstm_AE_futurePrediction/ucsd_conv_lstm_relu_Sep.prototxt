@@ -1,0 +1,587 @@
+
+# The shape of each input is 10x2x2x48x48 (T x N x C x H x W).
+
+
+# Sequence markers
+layer {
+  name: "sequence"
+  type: "HDF5Data"
+  top: "sequence"
+
+  hdf5_data_param {
+    # seq.txt contains a single line with a path to a h5 file
+    # That H5 file simply contains a sequence of (2*T-1)*N integers
+    # Where the first N integers are 0, and the remaining 1
+    # See also: build_hdf5.py
+
+    source: "seq2.txt"
+    batch_size: 19        # T + (T-1)
+  }
+}
+
+# Slice the Sequence markers into an encoding and decoding phase.
+layer {
+  name: "slice_seq"
+  type: "Slice"
+  bottom: "sequence"
+
+  top: "seq_enc"
+  top: "seq_dec"
+
+  slice_param {
+    axis: 0
+    slice_point: 10
+  }
+}
+
+# Data layers. We choose HDF5 format here.
+# Reminder: Data has to be interleaved: v_t1_n1, v_t1_n2, ..., v_t2_n1, v_t2_n2, ..., v_tT_n1, v_tT_n2, ...
+layer {
+  name: "data"
+  type: "HDF5Data"
+  top: "input"      # The actual input data (Sequence of T frames)
+  top: "match"      # Reconstruction data
+  top: "future_predict"
+
+  hdf5_data_param {
+    source: "train.txt"
+    batch_size: 1
+    shuffle: true
+  }
+  include { phase: TRAIN }
+}
+
+layer {
+ name: "data"
+  type: "HDF5Data"
+  top: "input"
+  top: "match"
+  top: "future_predict"
+
+  hdf5_data_param {
+    source: "test.txt"
+    batch_size: 1
+    shuffle: true
+  }
+  include { phase: TEST }
+}
+
+layer {
+  name: "conv1"
+  type: "Convolution"
+  bottom: "input"
+  top: "conv1"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 128
+    kernel_size: 5
+    stride: 1
+    pad: 2
+    axis: 2                       # This is necessary, as we use a 5D Tensor. You may remove this by reshaping to a 4D tensor first.
+    #weight_filler {
+    #  type: "msra"
+    #}
+    #bias_filler {
+    #  type: "constant"
+    #}
+    weight_filler {
+      type: "gaussian"
+      std: 0.005
+    }
+
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+layer {
+  name: "relu1"
+  type: "ReLU"
+  bottom: "conv1"
+  top: "conv1"
+}
+layer {
+  name: "conv2"
+  type: "Convolution"
+  bottom: "conv1"
+  top: "conv2"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 128
+    kernel_size: 5
+    stride: 1
+    pad: 2
+    axis: 2                       # This is necessary, as we use a 5D Tensor. You may remove this by reshaping to a 4D tensor first.
+    #weight_filler {
+    #  type: "msra"
+    #}
+    #bias_filler {
+    #  type: "constant"
+    #}
+    weight_filler {
+      type: "gaussian"
+      std: 0.005
+    }
+
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+layer {
+  name: "relu2"
+  type: "ReLU"
+  bottom: "conv2"
+  top: "conv2"
+}
+
+# conv2 has size of batch-size * 10 * 128 * 24 * 24
+layer{
+  name: "input_permute"
+  type: "Permute"
+  top: "conv2_p"
+  bottom: "conv2"
+  permute_param {
+  order: 1
+  order: 0
+  order: 2
+  order: 3
+  order: 4
+  }
+}
+
+layer {
+  name: "dummy"
+  type: "DummyData"
+  top: "dummy"
+
+  dummy_data_param {
+    shape {
+      dim: 1
+      dim: 1
+      dim: 128
+      dim: 24
+      dim: 24
+    }
+  }
+}
+
+
+# Encoding network. Reads in T timesteps of features
+# Input data of Conv-LSTM is shaped T x N x C x H x W (Use Reshape layer if necessary)
+
+layer {
+  name: "encode1"
+  type: "ConvLSTMReLU"
+
+  bottom: "conv2_p"     # Input features x
+  bottom: "seq_enc"   # Sequence markers
+
+  bottom: "dummy"   # Dummy input h (required by `expose_hidden: true`)
+  bottom: "dummy"   # Dummy input c
+
+  top: "encode1"
+  top: "encode1_h"    # Final hidden state (Shape: 1 x N x C x H x W)
+  top: "encode1_c"    # Final cell state
+
+  # This is a parameter from Jeff Donahues implementation.
+  # It allows us to expose `encode1_h` and `encode1_c`.
+  recurrent_param {
+    expose_hidden: true
+  }
+
+  lstm_debug_param{
+    # These two are actually default values and do not need to be set.
+    # num_axes_hadamard: 2 implies that parameters to be learnt are a 2D tensor
+    # axis_hadamard: 3 implies where to apply the product (
+    # Therefore, given TxNxCxHxW, the parameters have shape H x W.
+    axis_hadamard: 3
+    num_axes_hadamard: 2
+  }
+
+  # Conv Layer specification
+  lstm_conv_param {
+    num_output: 128
+    kernel_size: 5
+    pad: 2                  # Padding is required! All conv. kernels need to result in the same H x W shape.
+
+    weight_filler {
+      # Do not use xavier or other automatic methods on 5D tensors, this may cause bugs.
+      # Rather use uniform or gaussian!
+      # Xavier: sqrt( 3 / fan_in), fan_in := input_count / N, input_count := 10*16*16*16*16, N := 16
+      # Technically, we would need to specify different for type: "input" and type: "hidden"...
+      type: "gaussian"
+      std: 0.01
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+# Purpose of this layer: See `decode1` - UNCONDITIONED DECODER - NO INPUT 
+layer {
+  name: "input_decode1"
+  type: "DummyData"
+  top: "input_decode1"
+
+  dummy_data_param {
+    shape {
+      dim: 9 # Notice how T=9, not T=10!
+      dim: 1 #batch-size      
+      dim: 2
+      dim: 24
+      dim: 24
+    }
+  }
+}
+
+layer {
+  name: "decode1"
+  type: "ConvLSTMReLU"
+
+  bottom: "input_decode1"     #
+  bottom: "seq_dec"   # Sequence markers
+
+  bottom: "encode1_h"         # Input encoder's hidden state
+  bottom: "encode1_c"         # and cell state.
+
+  top: "decode1"
+
+  top: "decode1_h"            # We do not need those, but Jeff's implementation exposes them anyway.
+  top: "decode1_c"            # Same.
+  #This is a parameter from Jeff Donahues implementation.
+  #It allows us to expose `encode1_h` and `encode1_c`.
+  recurrent_param {
+    expose_hidden: true
+  }
+
+  lstm_debug_param{
+    # These two are actually default values and do not need to be set.
+    # num_axes_hadamard: 2 implies that parameters to be learnt are a 2D tensor
+    # axis_hadamard: 3 implies where to apply the product (
+    # Therefore, given TxNxCxHxW, the parameters have shape H x W.
+    axis_hadamard: 3
+    num_axes_hadamard: 2
+  }
+
+  # Conv Layer specification
+  lstm_conv_param {
+    num_output: 128
+    kernel_size: 5
+    pad: 2                  # Padding is required! All conv. kernels need to result in the same H x W shape.
+
+    weight_filler {
+      # Do not use xavier or other automatic methods on 5D tensors, this may cause bugs.
+      # Rather use uniform or gaussian!
+      # Xavier: sqrt( 3 / fan_in), fan_in := input_count / N, input_count := 10*16*16*16*16, N := 16
+      # Technically, we would need to specify different for type: "input" and type: "hidden"...
+      type: "gaussian"
+      std: 0.01
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+#future prediction
+layer {
+  name: "future1"
+  type: "ConvLSTMReLU"
+
+  bottom: "input_decode1"     #
+  bottom: "seq_dec"   # Sequence markers
+
+  bottom: "encode1_h"         # Input encoder's hidden state
+  bottom: "encode1_c"         # and cell state.
+
+  top: "future1"
+
+  top: "future1_h"            # We do not need those, but Jeff's implementation exposes them anyway.
+  top: "future1_c"            # Same.
+  #This is a parameter from Jeff Donahues implementation.
+  #It allows us to expose `encode1_h` and `encode1_c`.
+  recurrent_param {
+    expose_hidden: true
+  }
+
+  lstm_debug_param{
+    # These two are actually default values and do not need to be set.
+    # num_axes_hadamard: 2 implies that parameters to be learnt are a 2D tensor
+    # axis_hadamard: 3 implies where to apply the product (
+    # Therefore, given TxNxCxHxW, the parameters have shape H x W.
+    axis_hadamard: 3
+    num_axes_hadamard: 2
+  }
+
+  # Conv Layer specification
+  lstm_conv_param {
+    num_output: 128
+    kernel_size: 5
+    pad: 2                  # Padding is required! All conv. kernels need to result in the same H x W shape.
+
+    weight_filler {
+      # Do not use xavier or other automatic methods on 5D tensors, this may cause bugs.
+      # Rather use uniform or gaussian!
+      # Xavier: sqrt( 3 / fan_in), fan_in := input_count / N, input_count := 10*16*16*16*16, N := 16
+      # Technically, we would need to specify different for type: "input" and type: "hidden"...
+      type: "gaussian"
+      std: 0.01
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+layer {
+  name: "slice_encode"
+  type: "Slice"
+  bottom: "encode1"
+  top: "encode1_top_discard"    # We do not need this. Will pass it into a Silence layer.
+  top: "encode1_slice"          # Last timestep's output. We could actually also use `encode1_h` here.
+  slice_param {
+    axis: 0
+    slice_point: 9
+  }
+}
+
+# Concatenate output of (1) decode1 and encode1/ (2) encoder1 and future1
+# Output has shape T x N x C x H x W.
+layer {
+  name: "concat_decode_encode"
+  type: "Concat"
+  bottom: "encode1_slice"
+  bottom: "decode1"
+  top: "decode"
+  concat_param{
+    axis: 0
+  }
+}
+
+layer {
+  name: "concat_future"
+  type: "Concat"
+  bottom: "encode1_slice"
+  bottom: "future1"
+  top: "future_predict_out"
+  concat_param{
+    axis: 0
+  }
+}
+# Discard everything we did not use.
+layer {
+  name: "silencium"
+  type: "Silence"
+  bottom: "encode1_top_discard"
+  bottom: "decode1_h"
+  bottom: "decode1_c"
+  bottom: "future1_h"
+  bottom: "future1_c"
+}
+
+layer{
+  name: "decode_reshape"
+  type: "Reshape"
+  bottom: "decode"
+  top: "decode_rs"
+  reshape_param{
+    shape{
+      dim: 10 #batch-size * 10
+      dim: 128
+      dim: 24
+      dim: 24
+    }
+  }
+}
+
+layer{
+  name: "future_reshape"
+  type: "Reshape"
+  bottom: "future_predict_out"
+  top: "future_rs"
+  reshape_param{
+    shape{
+      dim: 10 #batch-size * 10
+      dim: 128
+      dim: 24
+      dim: 24
+    }
+  }
+}
+layer {
+  name: "wta"
+  type: "SpatialWta"
+  bottom: "decode_rs"
+  top: "decoder_wta"
+  spatial_wta_param {
+    global_wta: true
+    #kernel_size: 2
+    #stride: 2
+  }
+  }
+layer {
+  name: "wta"
+  type: "SpatialWta"
+  bottom: "future_rs"
+  top: "future_wta"
+  spatial_wta_param {
+    global_wta: true
+    #kernel_size: 2
+    #stride: 2
+  }
+  }
+layer {
+  name: "decoder_deconv"
+  type: "Deconvolution"
+  bottom: "decoder_wta"
+  top: "decoder_deconv"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 2
+    kernel_size: 11
+    stride: 1
+    pad: 5
+    #weight_filler {
+    #  type: "xavier"
+    #}
+    #bias_filler {
+    #  type: "constant"
+     # value: 0
+    #}
+    weight_filler {
+      type: "gaussian"
+      std: 0.005
+    }
+
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+layer {
+  name: "future_deconv"
+  type: "Deconvolution"
+  bottom: "future_wta"
+  top: "future_deconv"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 2
+    kernel_size: 11
+    stride: 1
+    pad: 5
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+      value: 0
+    }
+  }
+}
+
+# Flatten all data
+layer {
+  name: "flat_decoder"
+  type: "Flatten"
+  bottom: "decoder_deconv"
+  top: "decoder_flat"
+}
+layer {
+  name: "flat_future"
+  type: "Flatten"
+  bottom: "future_deconv"
+  top: "future_flat"
+
+}
+# Flatten target data
+layer{
+  name: "match_permute"
+  type: "Permute"
+  top: "match_p"
+  bottom: "match"
+  permute_param {
+  order: 1
+  order: 0
+  order: 2
+  order: 3
+  order: 4
+  }
+}
+layer {
+  name: "flat_match"
+  type: "Flatten"
+  bottom: "match_p"
+  top: "match_flat"
+}
+layer{
+  name: "future_permute"
+  type: "Permute"
+  top: "future_predict_p"
+  bottom: "future_predict"
+  permute_param {
+  order: 1
+  order: 0
+  order: 2
+  order: 3
+  order: 4
+  }
+}
+layer {
+  name: "flat_match_future"
+  type: "Flatten"
+  bottom: "future_predict_p"
+  top: "future_match_flat"
+}
+layer {
+  name: "loss_euclidean"
+  type: "EuclideanLoss"
+  bottom: "decoder_flat"
+  bottom: "match_flat"
+  top: "recons_error"
+  loss_weight: 0.5
+}
+layer {
+  name: "loss_euclidean"
+  type: "EuclideanLoss"
+  bottom: "future_flat"
+  bottom: "future_match_flat"
+  top: "predict_error"
+  loss_weight: 0.5
+}

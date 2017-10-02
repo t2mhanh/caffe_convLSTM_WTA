@@ -1,0 +1,24 @@
+net: "mnist_lstm_relu_AE.prototxt"
+test_iter: 10 #125      # Validation Set: 2000 / 16
+test_interval: 4000 #4000 # 625  # Every epoch 10000/16
+test_initialization: false
+
+base_lr: 0.01
+#momentum: 0.0
+weight_decay: 0.0005
+
+lr_policy: "fixed"
+momentum: 0.9
+#lr_policy: "inv"
+#gamma: 0.0001
+#power: 0.75
+
+display: 10
+max_iter: 20000
+
+snapshot: 2000
+snapshot_prefix: "/usr/not-backed-up/1_convlstm/conv_lstm_relu/convlstm_predict"
+
+solver_mode: GPU
+type: "RMSProp"
+rms_decay: 0.9

@@ -1,0 +1,185 @@
+name: "MNISTWTA"
+layer {
+  name: "data"
+  type: "Data"
+  top: "data"
+  include {
+    phase: TEST
+    #stage: "test-on-test"
+  }
+  transform_param {
+    scale: 0.0039215684
+    mean_file: "/usr/not-backed-up/1_convlstm/mnist/mean_image.binaryproto"
+  }
+  data_param {
+    source: "/usr/not-backed-up/1_convlstm/mnist/mnist_test_lmdb"
+    batch_size: 100
+    backend: LMDB
+  }
+}
+
+layer {
+  name: "conv1"
+  type: "Convolution"
+  bottom: "data"
+  top: "conv1"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 64
+    kernel_size: 5
+    stride: 1
+    pad: 2
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
+  }
+}
+layer {
+  name: "relu1"
+  type: "ReLU"
+  bottom: "conv1"
+  top: "conv1"
+}
+layer {
+  name: "conv2"
+  type: "Convolution"
+  bottom: "conv1"
+  top: "conv2"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 64
+    kernel_size: 5
+    stride: 1
+    pad: 2
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
+  }
+}
+layer {
+  name: "relu2"
+  type: "ReLU"
+  bottom: "conv2"
+  top: "conv2"
+}
+layer {
+  name: "conv3"
+  type: "Convolution"
+  bottom: "conv2"
+  top: "conv3"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 64
+    kernel_size: 5
+    stride: 1
+    pad: 2
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
+  }
+}
+layer {
+  name: "relu3"
+  type: "ReLU"
+  bottom: "conv3"
+  top: "conv3"
+}
+
+#layer {
+#  name: "wta"
+#  type: "SpatialWta"
+#  bottom: "conv3"
+#  top: "wta"
+#}
+layer {
+  name: "wta"
+  type: "SpatialWta"
+  bottom: "conv3"
+  top: "wta"
+  spatial_wta_param {
+    global_wta: true
+    #kernel_size: 2
+    #stride: 2
+  }
+  }
+
+layer {
+  name: "deconv"
+  type: "Deconvolution"
+  bottom: "wta"
+  top: "deconv"
+  param {
+    lr_mult: 1
+    decay_mult: 1
+  }
+  param {
+    lr_mult: 2
+    decay_mult: 0
+  }
+  convolution_param {
+    num_output: 1
+    kernel_size: 11
+    stride: 1
+    pad: 5
+    weight_filler {
+      type: "xavier"
+    }
+    bias_filler {
+      type: "constant"
+    }
+  }
+}
+
+#layer {
+#  name: "loss"
+#  type: "EuclideanLoss"
+#  bottom: "deconv"
+#  bottom: "data"
+#  top: "l2_error"
+#  loss_weight: 1
+#}
+layer {
+  type: 'Python'
+  name: 'loss'
+  top: 'l2_error'
+  bottom: 'deconv'
+  bottom: 'data'
+  python_param {
+    # the module name -- usually the filename -- that needs to be in $PYTHONPATH
+    module: 'pyloss'
+    # the layer name -- the class name in the module
+    layer: 'EuclideanLossLayer'
+  }
+  # set loss weight so Caffe knows this is a loss layer
+  loss_weight: 1
+}

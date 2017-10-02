@@ -1,0 +1,22 @@
+net: "ucsd_conv_lstm_relu_Sep.prototxt"
+test_iter: 40000       # Validation Set: 40000
+test_interval: 860181   # Every epoch 860181/1
+test_initialization: false
+
+base_lr: 0.000001
+momentum: 0.0
+weight_decay: 0.0005
+
+lr_policy: "inv"
+gamma: 0.0001
+power: 0.75
+
+display: 10
+max_iter: 2000000
+
+snapshot: 1000
+snapshot_prefix: "/usr/not-backed-up/1_convlstm/ucsd_conv_lstm_Sep/"
+
+solver_mode: GPU
+type: "RMSProp"
+rms_decay: 0.9

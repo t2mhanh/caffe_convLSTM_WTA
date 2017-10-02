@@ -1,0 +1,4 @@
+/usr/not-backed-up/1_DATABASE/UCSD_Anomaly_Dataset.tar/UCSD_Anomaly_Dataset.v1p2/Flow_python_Patch24_lstm/train_seq_5_1.h5
+/usr/not-backed-up/1_DATABASE/UCSD_Anomaly_Dataset.tar/UCSD_Anomaly_Dataset.v1p2/Flow_python_Patch24_lstm/train_seq_7_1.h5
+/usr/not-backed-up/1_DATABASE/UCSD_Anomaly_Dataset.tar/UCSD_Anomaly_Dataset.v1p2/Flow_python_Patch24_lstm/train_seq_6_1.h5
+/usr/not-backed-up/1_DATABASE/UCSD_Anomaly_Dataset.tar/UCSD_Anomaly_Dataset.v1p2/Flow_python_Patch24_lstm/train_seq_9_1.h5

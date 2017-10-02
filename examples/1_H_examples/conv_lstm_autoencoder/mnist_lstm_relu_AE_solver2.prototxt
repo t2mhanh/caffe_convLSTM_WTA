@@ -1,0 +1,25 @@
+net: "examples/1_H_examples/conv_lstm_autoencoder/mnist_lstm_relu_AE2.prototxt"
+test_iter: 20 #1000       # Validation Set: 2000/2
+test_interval: 80 #4000   # Every epoch 8000/2
+test_initialization: false
+
+iter_size: 50
+base_lr: 0.001
+momentum: 0.0
+weight_decay: 0.0005
+
+lr_policy: "fixed"
+#momentum: 0.9
+#lr_policy: "inv"
+#gamma: 0.0001
+#power: 0.75
+
+display: 1
+max_iter: 20000
+
+snapshot: 80
+snapshot_prefix: "/usr/not-backed-up/1_convlstm/conv_lstm_relu/conv_lstm_relu_AE_display1_"
+
+solver_mode: GPU
+type: "RMSProp"
+rms_decay: 0.9

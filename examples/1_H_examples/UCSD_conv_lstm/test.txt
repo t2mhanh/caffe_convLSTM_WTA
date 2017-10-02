@@ -1,0 +1,5 @@
+/usr/not-backed-up/MODELS_DATA/data/caffe_UCSD_OptPatches_48x48x2x10/Flow_10_stream136.h5
+/usr/not-backed-up/MODELS_DATA/data/caffe_UCSD_OptPatches_48x48x2x10/Flow_10_stream137.h5
+/usr/not-backed-up/MODELS_DATA/data/caffe_UCSD_OptPatches_48x48x2x10/Flow_10_stream138.h5
+/usr/not-backed-up/MODELS_DATA/data/caffe_UCSD_OptPatches_48x48x2x10/Flow_10_stream139.h5
+/usr/not-backed-up/MODELS_DATA/data/caffe_UCSD_OptPatches_48x48x2x10/Flow_10_stream140.h5
