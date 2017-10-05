@@ -3,7 +3,7 @@ GPU/Dockerfile is adjusted for convLSTM. This Dockerfile can be used to create a
 I haven't checked CPU/Dockerfile.
 
 
-# This document is for bvlc/caffe master branch
+### I keep this document here from [bvlc/caffe master branch](https://github.com/BVLC/caffe/tree/master/docker)
 ### Running an official image
 
 You can run one of the automatic [builds](https://hub.docker.com/r/bvlc/caffe). E.g. for the CPU version:
