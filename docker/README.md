@@ -1,3 +1,9 @@
+# Notes:
+GPU/Dockerfile is adjusted for convLSTM. This Dockerfile can be used to create a container (working with Python, GPU (cuda version 8.0)).
+I haven't checked CPU/Dockerfile.
+
+
+# This document is for bvlc/caffe master branch
 ### Running an official image
 
 You can run one of the automatic [builds](https://hub.docker.com/r/bvlc/caffe). E.g. for the CPU version:
