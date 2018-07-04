@@ -36,7 +36,7 @@ RUN git clone https://github.com/t2mhanh/caffe_convLSTM_WTA.git . && \
     git clone https://github.com/NVIDIA/nccl.git && cd nccl && make -j install && cd .. && rm -rf nccl
 
 RUN mkdir build && cd build && \
-    cmake -DUSE_CUDNN=1 -DUSE_NCCL=1 -DCMAKE_CXX_FLAGS="-std=c++11" .. && \
+    cmake -DUSE_CUDNN=1 -DUSE_NCCL=1 --DBUILD_python_layer=1 -DCMAKE_CXX_FLAGS="-std=c++11" .. && \
     make -j"$(nproc)"
 
 ENV PYCAFFE_ROOT $CAFFE_ROOT/python
