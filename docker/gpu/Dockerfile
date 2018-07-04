@@ -29,9 +29,10 @@ WORKDIR $CAFFE_ROOT
 
 # FIXME: use ARG instead of ENV once DockerHub supports this
 # https://github.com/docker/hub-feedback/issues/460
+#pip version > 9.0 gives errors ImportError: cannot import name main
 
 RUN git clone https://github.com/t2mhanh/caffe_convLSTM_WTA.git . && \
-    pip install --upgrade pip=9.0.3 && \ #pip version > 9.0 gives errors ImportError: cannot import name main
+    pip install --upgrade pip=9.0.3 && \ 
     cd python && for req in $(cat requirements.txt) pydot; do pip install $req; done && cd .. && \
     git clone https://github.com/NVIDIA/nccl.git && cd nccl && make -j install && cd .. && rm -rf nccl
 
