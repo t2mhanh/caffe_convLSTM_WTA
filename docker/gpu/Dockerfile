@@ -31,7 +31,7 @@ WORKDIR $CAFFE_ROOT
 # https://github.com/docker/hub-feedback/issues/460
 
 RUN git clone https://github.com/t2mhanh/caffe_convLSTM_WTA.git . && \
-    pip install --upgrade pip && \
+    pip install --upgrade pip=9.0.3 && \ #pip version > 9.0 gives errors ImportError: cannot import name main
     cd python && for req in $(cat requirements.txt) pydot; do pip install $req; done && cd .. && \
     git clone https://github.com/NVIDIA/nccl.git && cd nccl && make -j install && cd .. && rm -rf nccl
 
